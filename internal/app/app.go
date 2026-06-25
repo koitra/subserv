@@ -15,6 +15,7 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/pressly/goose/v3"
 	"github.com/stephenafamo/bob"
+	"go.yaml.in/yaml/v3"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 
@@ -77,6 +78,16 @@ func New(cfg config.Full, validate *validator.Validate) (App, error) {
 	}
 
 	return app, nil
+}
+
+func (a *App) Spec() ([]byte, error) {
+	spec := a.hapi.OpenAPI()
+	data, err := yaml.Marshal(spec)
+	if err != nil {
+		return nil, fmt.Errorf("marshal spec: %w", err)
+	}
+
+	return data, nil
 }
 
 func (a *App) Shutdown(ctx context.Context) error {
