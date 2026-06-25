@@ -2,31 +2,18 @@ package main
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"log/slog"
-	"net"
-	"net/http"
 	"os"
 	"os/signal"
-	"strconv"
 	"syscall"
 	"time"
 
-	"github.com/danielgtaylor/huma/v2"
-	"github.com/danielgtaylor/huma/v2/adapters/humachi"
-	"github.com/go-chi/chi/v5"
 	"github.com/go-playground/validator/v10"
-	"github.com/pressly/goose/v3"
-	"github.com/stephenafamo/bob"
 
-	_ "github.com/jackc/pgx/v5/stdlib"
-
-	"github.com/koitra/subserv"
+	"github.com/koitra/subserv/internal/app"
 	"github.com/koitra/subserv/internal/config"
-	"github.com/koitra/subserv/internal/humaext"
-	"github.com/koitra/subserv/internal/subscriptions"
 )
 
 func main() {
@@ -38,57 +25,21 @@ func main() {
 }
 
 func run() error {
-	validate := validator.New()
 	cfgPath := os.Getenv("SUBSERV_CONFIG_PATH")
+	validate := validator.New()
 	cfg, err := config.Load(cfgPath, validate)
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
 	}
 
-	stdDB, err := sql.Open("pgx", cfg.DB.URL)
+	app, err := app.New(cfg, validate)
 	if err != nil {
-		return fmt.Errorf("connect to db: %w", err)
+		return fmt.Errorf("create app: %w", err)
 	}
-	defer func() { _ = stdDB.Close() }()
-	stdDB.SetMaxOpenConns(cfg.DB.MaxConnections)
-	db := bob.NewDB(stdDB)
-
-	goose.SetBaseFS(subserv.MigrationsFS)
-	err = goose.SetDialect("postgres")
-	if err != nil {
-		return fmt.Errorf("initialize sql migrations: %w", err)
-	}
-
-	err = goose.Up(stdDB, "migrations")
-	if err != nil {
-		return fmt.Errorf("migrate database: %w", err)
-	}
-
-	mux := chi.NewMux()
-	humaCfg := huma.DefaultConfig("Subserv", "0.1.0")
-	hapi := humachi.New(mux, humaCfg)
-	hapi.UseMiddleware(humaext.SlogMiddleware)
-
-	subsRepo := subscriptions.NewRepository(db)
-	subsSvc := subscriptions.NewService(subsRepo, validate)
-	subsHandler := subscriptions.NewHandler(subsSvc)
-	subsHandler.Register(hapi)
-
-	addr := net.JoinHostPort(cfg.HTTP.Host, strconv.FormatUint(uint64(cfg.HTTP.Port), 10))
 
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
 	ctx := context.Background()
-
-	slog.Info(
-		"Starting server",
-		slog.String("host", cfg.HTTP.Host),
-		slog.Uint64("port", uint64(cfg.HTTP.Port)),
-	)
-	srv := &http.Server{
-		Addr:    addr,
-		Handler: mux,
-	}
 
 	go func() {
 		<-sig
@@ -97,13 +48,14 @@ func run() error {
 		defer cancel()
 		slog.Info("Shutting down server")
 
-		_ = srv.Shutdown(ctx)
+		_ = app.Shutdown(ctx)
 	}()
 
-	err = srv.ListenAndServe()
-	if err != nil && !errors.Is(err, http.ErrServerClosed) {
-		return err
-	}
+	slog.Info(
+		"Starting server",
+		slog.String("host", cfg.HTTP.Host),
+		slog.Uint64("port", uint64(cfg.HTTP.Port)),
+	)
 
-	return nil
+	return app.ListenAndServe()
 }

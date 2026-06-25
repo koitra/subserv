@@ -26,8 +26,9 @@ type (
 	}
 
 	HTTP struct {
-		Host string `koanf:"host" validate:"required"`
-		Port uint16 `koanf:"port" validate:"required"`
+		Host       string `koanf:"host" validate:"required"`
+		Port       uint16 `koanf:"port" validate:"required"`
+		EnableDocs bool   `koanf:"docs"`
 	}
 )
 
