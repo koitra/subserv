@@ -1,0 +1,88 @@
+package config
+
+import (
+	"fmt"
+	"os"
+	"strings"
+
+	"github.com/go-playground/validator/v10"
+	"github.com/knadh/koanf/parsers/yaml"
+	"github.com/knadh/koanf/providers/env/v2"
+	"github.com/knadh/koanf/providers/file"
+	"github.com/knadh/koanf/providers/structs"
+	"github.com/knadh/koanf/v2"
+)
+
+type (
+	Full struct {
+		DB   DB   `koanf:"db"`
+		HTTP HTTP `koanf:"http"`
+	}
+
+	DB struct {
+		URL            string `koanf:"url"            validate:"required,url"`
+		MaxConnections int    `koanf:"maxconnections" validate:"omitempty,gte=1"`
+	}
+
+	HTTP struct {
+		Host string `koanf:"host" validate:"required"`
+		Port uint16 `koanf:"port" validate:"required"`
+	}
+)
+
+func Load(cfgPath string, validate *validator.Validate) (Full, error) {
+	k := koanf.New(".")
+
+	err := k.Load(structs.Provider(new(defaultConfig()), "koanf"), nil)
+	if err != nil {
+		return Full{}, fmt.Errorf("load default: %w", err)
+	}
+
+	if cfgPath != "" {
+		f, err := os.Open(cfgPath)
+		if err == nil {
+			defer func() { _ = f.Close() }()
+
+			err = k.Load(file.Provider(cfgPath), yaml.Parser())
+			if err != nil {
+				return Full{}, fmt.Errorf("load yaml: %w", err)
+			}
+		} else if !os.IsNotExist(err) {
+			return Full{}, fmt.Errorf("open config file: %w", err)
+		}
+	}
+
+	err = k.Load(env.Provider(".", env.Opt{
+		Prefix: "SUBSERV_",
+		TransformFunc: func(k, v string) (string, any) {
+			k = strings.ReplaceAll(strings.ToLower(strings.TrimPrefix(k, "SUBSERV_")), "_", ".")
+			if strings.Contains(v, " ") {
+				return k, strings.Split(v, " ")
+			}
+
+			return k, v
+		},
+	}), nil)
+	if err != nil {
+		return Full{}, fmt.Errorf("load env config: %w", err)
+	}
+
+	cfg := Full{}
+	err = k.Unmarshal("", &cfg)
+	if err != nil {
+		return Full{}, fmt.Errorf("unmarshal config: %w", err)
+	}
+
+	err = validate.Struct(&cfg)
+	if err != nil {
+		return Full{}, fmt.Errorf("validate config: %w", err)
+	}
+	return cfg, nil
+}
+
+func defaultConfig() Full {
+	return Full{
+		DB:   DB{MaxConnections: 50},
+		HTTP: HTTP{Host: "localhost", Port: 33220},
+	}
+}

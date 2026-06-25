@@ -1,0 +1,2 @@
+db:
+  url: postgres://subserv:verystron6@localhost:33210/subserv?sslmode=disable
