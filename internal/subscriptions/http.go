@@ -2,6 +2,7 @@ package subscriptions
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"time"
 
@@ -31,9 +32,10 @@ func (h *Handler) Register(hapi huma.API) {
 		)
 	}
 
-	huma.Post(g, "", h.create, statuses)
-	huma.Delete(g, "/{subscriptionId}", h.delete, statuses)
 	huma.Get(g, "", h.index, statuses)
+	huma.Post(g, "", h.create, statuses)
+	huma.Put(g, "/{subscriptionId}", h.update, statuses)
+	huma.Delete(g, "/{subscriptionId}", h.delete, statuses)
 }
 
 type (
@@ -147,6 +149,53 @@ type (
 		Body struct {
 			Subscriptions []APISubscription `json:"subscriptions"`
 			Cursor        *time.Time        `json:"cursor,omitempty"`
+		}
+	}
+)
+
+func (h *Handler) update(
+	ctx context.Context,
+	in *SubscriptionsUpdateIn,
+) (*SubscriptionsUpdateOut, error) {
+	sub, err := h.svc.Update(ctx, UpdateSubscription{
+		ID:          in.SubscriptionID,
+		ServiceName: in.Body.ServiceName,
+		Price:       in.Body.Price,
+		UserID:      in.Body.UserID,
+		StartDate:   time.Time(in.Body.StartDate),
+		EndDate:     (*time.Time)(in.Body.EndDate),
+	})
+	if err != nil {
+		err, ok := humaext.ValidateToHuma(err)
+		if ok {
+			return nil, err
+		}
+		if e, ok := errors.AsType[UnknownSubscriptionError](err); ok {
+			return nil, huma.Error404NotFound("Subscription not found", e)
+		}
+		return nil, err
+	}
+
+	var out SubscriptionsUpdateOut
+	out.Body.Subscription = apiSubscriptionFromSubscription(&sub)
+
+	return &out, nil
+}
+
+type (
+	SubscriptionsUpdateIn struct {
+		SubscriptionID uuid.UUID `path:"subscriptionId"`
+		Body           struct {
+			ServiceName string    `json:"serviceName"`
+			Price       int32     `json:"price"`
+			UserID      uuid.UUID `json:"userId"`
+			StartDate   Date      `json:"startDate"`
+			EndDate     *Date     `json:"endDate,omitempty"`
+		}
+	}
+	SubscriptionsUpdateOut struct {
+		Body struct {
+			Subscription APISubscription `json:"subscription"`
 		}
 	}
 )

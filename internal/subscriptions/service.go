@@ -16,6 +16,7 @@ type (
 	Service interface {
 		Add(ctx context.Context, sub NewSubscription) (Subscription, error)
 		Find(ctx context.Context, criteria Criteria) (FindResult, error)
+		Update(ctx context.Context, update UpdateSubscription) (Subscription, error)
 		Remove(ctx context.Context, subID uuid.UUID) error
 	}
 
@@ -36,6 +37,15 @@ type (
 		UserID      uuid.UUID  `validate:"required,uuid"`
 		StartDate   time.Time  `validate:"required"`
 		EndDate     *time.Time `validate:"omitnil,required,gtefield=StartDate"`
+	}
+
+	UpdateSubscription struct {
+		ID          uuid.UUID  `validate:"required,uuid"`
+		ServiceName string     `validate:"required"`
+		Price       int32      `validate:"gte=0"`
+		UserID      uuid.UUID  `validate:"required,uuid"`
+		StartDate   time.Time  `validate:"required"`
+		EndDate     *time.Time `validate:"omitnil,gtfield=StartDate"`
 	}
 
 	Criteria struct {
@@ -109,6 +119,38 @@ func (s *Svc) Find(ctx context.Context, criteria Criteria) (FindResult, error) {
 	return res, nil
 }
 
+func (s *Svc) Update(ctx context.Context, update UpdateSubscription) (Subscription, error) {
+	err := s.validate.Struct(&update)
+	if err != nil {
+		return Subscription{}, fmt.Errorf("invalid subscription: %w", err)
+	}
+
+	subs, err := s.r.Find(ctx, Criteria{
+		IDs: uuid.UUIDs{update.ID},
+	})
+	if err != nil {
+		return Subscription{}, fmt.Errorf("find subscriptions: %w", err)
+	}
+	if len(subs) == 0 {
+		return Subscription{}, UnknownSubscriptionError{ID: update.ID}
+	}
+
+	sub := subs[0]
+	sub.ServiceName = update.ServiceName
+	sub.Price = update.Price
+	sub.UserID = update.UserID
+	sub.StartDate = update.StartDate
+	sub.EndDate = update.EndDate
+	sub.UpdatedAt = time.Now()
+	sub.normalizeTime()
+
+	err = s.r.Update(ctx, sub)
+	if err != nil {
+		return Subscription{}, fmt.Errorf("update subscription: %w", err)
+	}
+	return sub, nil
+}
+
 func (sub *Subscription) normalizeTime() {
 	sub.StartDate = sub.StartDate.Truncate(time.Millisecond).UTC()
 	if sub.EndDate != nil {
@@ -142,4 +184,12 @@ func newSubscription(
 	s.normalizeTime()
 
 	return s
+}
+
+type UnknownSubscriptionError struct {
+	ID uuid.UUID
+}
+
+func (e UnknownSubscriptionError) Error() string {
+	return fmt.Sprintf("subscription with id %v was not found", e.ID)
 }

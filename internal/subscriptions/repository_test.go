@@ -188,6 +188,77 @@ func TestFind(t *testing.T) {
 	})
 }
 
+func TestUpdate(t *testing.T) {
+	t.Parallel()
+
+	t.Run("unknown subscription", func(t *testing.T) {
+		t.Parallel()
+		r, _, ctx := testEnv(t)
+
+		s := Subscription{
+			ID: uuidext.NewV7(),
+		}
+		err := r.Update(ctx, s)
+		expect := UnknownSubscriptionError{ID: s.ID}
+		require.Equal(t, expect, err)
+	})
+
+	t.Run("updates", func(t *testing.T) {
+		t.Parallel()
+		r, db, ctx := testEnv(t)
+
+		s1T := time.Now().UTC()
+		s2T := s1T.Add(time.Millisecond * 10)
+
+		subs := []Subscription{
+			{
+				ID:          uuidext.NewV7(),
+				ServiceName: "s1",
+				Price:       10,
+				UserID:      uuidext.NewV7(),
+				StartDate:   time.Date(2026, 5, 10, 0, 0, 0, 0, time.UTC),
+				CreatedAt:   s1T,
+				UpdatedAt:   s1T,
+			},
+			{
+				ID:          uuidext.NewV7(),
+				ServiceName: "s2",
+				Price:       100,
+				UserID:      uuidext.NewV7(),
+				StartDate:   time.Date(2026, 6, 10, 0, 0, 0, 0, time.UTC),
+				CreatedAt:   s2T,
+				UpdatedAt:   s2T,
+			},
+		}
+
+		for i := range subs {
+			sub := &subs[i]
+			sub.normalizeTime()
+
+			err := r.Create(ctx, *sub)
+			require.NoError(t, err)
+		}
+
+		subs[1].ServiceName = "s2 updated"
+		subs[1].EndDate = new(time.Now().Add(time.Hour * 10))
+		subs[1].normalizeTime()
+
+		err := r.Update(ctx, subs[1])
+		require.NoError(t, err)
+
+		stored, err := models.Subscriptions.Query(sm.OrderBy(models.Subscriptions.Columns.CreatedAt).Asc()).
+			All(
+				ctx, db)
+		require.NoError(t, err)
+		require.Len(t, stored, len(subs))
+
+		for i, sub := range stored {
+			s := subscriptionFromDB(sub)
+			require.EqualValues(t, subs[i], s)
+		}
+	})
+}
+
 func testEnv(t *testing.T) (Repository, bob.DB, context.Context) {
 	db := testdb.New(t)
 	r := NewRepository(db)

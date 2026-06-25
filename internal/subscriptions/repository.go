@@ -18,6 +18,7 @@ type (
 	Repository interface {
 		Create(ctx context.Context, sub Subscription) error
 		Find(ctx context.Context, criteria Criteria) ([]Subscription, error)
+		Update(ctx context.Context, sub Subscription) error
 		Delete(ctx context.Context, subID uuid.UUID) error
 	}
 
@@ -70,6 +71,25 @@ func (r *PgRepository) Find(ctx context.Context, criteria Criteria) ([]Subscript
 	}
 
 	return res, nil
+}
+
+func (r *PgRepository) Update(ctx context.Context, sub Subscription) error {
+	setter := sub.setter()
+	setter.ID = omit.Val[uuid.UUID]{}
+
+	rowsCount, err := models.Subscriptions.Update(
+		models.UpdateWhere.Subscriptions.ID.EQ(sub.ID),
+		setter.UpdateMod(),
+	).Exec(ctx, r.db)
+	if err != nil {
+		return fmt.Errorf("update subscription: %w", err)
+	}
+
+	if rowsCount == 0 {
+		return UnknownSubscriptionError{ID: sub.ID}
+	}
+
+	return nil
 }
 
 func (sub *Subscription) setter() *models.SubscriptionSetter {
