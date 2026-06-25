@@ -194,8 +194,8 @@ type (
 		SubscriptionID uuid.UUID `path:"subscription_id"`
 		Body           struct {
 			ServiceName string    `json:"service_name"`
-			Price       int32     `json:"price"`
-			UserID      uuid.UUID `json:"user_id"`
+			Price       int32     `json:"price" minimum:"0"`
+			UserID      uuid.UUID `json:"user_id" format:"uuid"`
 			StartDate   Date      `json:"start_date"`
 			EndDate     *Date     `json:"end_date,omitempty"`
 		}
