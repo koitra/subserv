@@ -39,7 +39,8 @@ func main() {
 
 func run() error {
 	validate := validator.New()
-	cfg, err := config.Load("config.yaml", validate)
+	cfgPath := os.Getenv("SUBSERV_CONFIG_PATH")
+	cfg, err := config.Load(cfgPath, validate)
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
 	}
