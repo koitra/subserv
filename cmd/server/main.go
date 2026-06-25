@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 	"os"
@@ -24,6 +25,7 @@ import (
 
 	"github.com/koitra/subserv"
 	"github.com/koitra/subserv/internal/config"
+	"github.com/koitra/subserv/internal/humaext"
 	"github.com/koitra/subserv/internal/subscriptions"
 )
 
@@ -64,6 +66,7 @@ func run() error {
 	mux := chi.NewMux()
 	humaCfg := huma.DefaultConfig("Subserv", "0.1.0")
 	hapi := humachi.New(mux, humaCfg)
+	hapi.UseMiddleware(humaext.SlogMiddleware)
 
 	subsRepo := subscriptions.NewRepository(db)
 	subsSvc := subscriptions.NewService(subsRepo, validate)
@@ -76,6 +79,11 @@ func run() error {
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
 	ctx := context.Background()
 
+	slog.Info(
+		"Starting server",
+		slog.String("host", cfg.HTTP.Host),
+		slog.Uint64("port", uint64(cfg.HTTP.Port)),
+	)
 	srv := &http.Server{
 		Addr:    addr,
 		Handler: mux,
@@ -86,6 +94,7 @@ func run() error {
 
 		ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 		defer cancel()
+		slog.Info("Shutting down server")
 
 		_ = srv.Shutdown(ctx)
 	}()

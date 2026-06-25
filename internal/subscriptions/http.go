@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -63,6 +64,7 @@ func (h *Handler) create(
 		EndDate:     (*time.Time)(in.Body.EndDate),
 	})
 	if err != nil {
+		slog.ErrorContext(ctx, "Create failed", slog.String("error", err.Error()))
 		err, ok := humaext.ValidateToHuma(err)
 		if ok {
 			return nil, err
@@ -99,6 +101,7 @@ func (h *Handler) delete(
 ) (*SubscriptionsDeleteOut, error) {
 	err := h.svc.Remove(ctx, in.SubscriptionID)
 	if err != nil {
+		slog.ErrorContext(ctx, "Delete failed", slog.String("error", err.Error()))
 		return nil, err
 	}
 
@@ -125,6 +128,7 @@ func (h *Handler) index(
 		Cursor:       in.WebCursorIn.ToCursor().WithMaxLimit(100),
 	})
 	if err != nil {
+		slog.ErrorContext(ctx, "Index failed", slog.String("error", err.Error()))
 		return nil, err
 	}
 
@@ -168,6 +172,7 @@ func (h *Handler) update(
 		EndDate:     (*time.Time)(in.Body.EndDate),
 	})
 	if err != nil {
+		slog.ErrorContext(ctx, "Update failed", slog.String("error", err.Error()))
 		err, ok := humaext.ValidateToHuma(err)
 		if ok {
 			return nil, err
@@ -211,6 +216,7 @@ func (h *Handler) total(
 		ServiceName: in.ServiceName.Ptr(),
 	})
 	if err != nil {
+		slog.ErrorContext(ctx, "Total failed", slog.String("error", err.Error()))
 		return nil, fmt.Errorf("get total: %w", err)
 	}
 

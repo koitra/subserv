@@ -3,6 +3,7 @@ package subscriptions
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/go-playground/validator/v10"
@@ -100,11 +101,19 @@ func (s *Svc) Add(ctx context.Context, add NewSubscription) (Subscription, error
 		return Subscription{}, fmt.Errorf("create new subscription: %w", err)
 	}
 
+	slog.Info("Created new subscription", slog.String("subscriptionID", sub.ID.String()))
+
 	return sub, nil
 }
 
 func (s *Svc) Remove(ctx context.Context, subID uuid.UUID) error {
-	return s.r.Delete(ctx, subID)
+	err := s.r.Delete(ctx, subID)
+	if err != nil {
+		return err
+	}
+
+	slog.Info("Removed subscription", slog.String("subscriptionID", subID.String()))
+	return nil
 }
 
 func (s *Svc) Find(ctx context.Context, criteria Criteria) (FindResult, error) {
@@ -154,6 +163,7 @@ func (s *Svc) Update(ctx context.Context, update UpdateSubscription) (Subscripti
 	if err != nil {
 		return Subscription{}, fmt.Errorf("update subscription: %w", err)
 	}
+	slog.Info("Updated subscription", slog.String("subscriptionID", sub.ID.String()))
 	return sub, nil
 }
 

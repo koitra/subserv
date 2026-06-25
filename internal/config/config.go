@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"strings"
 
@@ -47,7 +48,10 @@ func Load(cfgPath string, validate *validator.Validate) (Full, error) {
 			if err != nil {
 				return Full{}, fmt.Errorf("load yaml: %w", err)
 			}
-		} else if !os.IsNotExist(err) {
+			slog.Debug("Loaded config from file", slog.String("config", cfgPath))
+		} else if os.IsNotExist(err) {
+			slog.Warn("Provided config file was not found", slog.String("config", cfgPath))
+		} else {
 			return Full{}, fmt.Errorf("open config file: %w", err)
 		}
 	}
@@ -66,6 +70,7 @@ func Load(cfgPath string, validate *validator.Validate) (Full, error) {
 	if err != nil {
 		return Full{}, fmt.Errorf("load env config: %w", err)
 	}
+	slog.Debug("Loaded config from env")
 
 	cfg := Full{}
 	err = k.Unmarshal("", &cfg)

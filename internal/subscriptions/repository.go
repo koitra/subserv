@@ -3,6 +3,7 @@ package subscriptions
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/aarondl/opt/omit"
 	"github.com/aarondl/opt/omitnull"
@@ -36,6 +37,11 @@ func NewRepository(db bob.DB) *PgRepository {
 }
 
 func (r *PgRepository) Create(ctx context.Context, sub Subscription) error {
+	slog.DebugContext(
+		ctx,
+		"Creating new subscription",
+		slog.String("subscriptionID", sub.ID.String()),
+	)
 	_, err := models.Subscriptions.Insert(sub.setter()).Exec(ctx, r.db)
 	if err != nil {
 		return fmt.Errorf("insert subscription: %w", err)
@@ -44,10 +50,22 @@ func (r *PgRepository) Create(ctx context.Context, sub Subscription) error {
 }
 
 func (r *PgRepository) Delete(ctx context.Context, subID uuid.UUID) error {
-	_, err := models.Subscriptions.Delete(models.DeleteWhere.Subscriptions.ID.EQ(subID)).
+	slog.DebugContext(
+		ctx,
+		"Deleting new subscription",
+		slog.String("subscriptionID", subID.String()),
+	)
+	count, err := models.Subscriptions.Delete(models.DeleteWhere.Subscriptions.ID.EQ(subID)).
 		Exec(ctx, r.db)
 	if err != nil {
 		return fmt.Errorf("delete subscription: %w", err)
+	}
+	if count == 0 {
+		slog.WarnContext(
+			ctx,
+			"Deleted subscription was not found",
+			slog.String("subscriptionID", subID.String()),
+		)
 	}
 
 	return nil
@@ -78,6 +96,11 @@ func (r *PgRepository) Find(ctx context.Context, criteria Criteria) ([]Subscript
 }
 
 func (r *PgRepository) Update(ctx context.Context, sub Subscription) error {
+	slog.DebugContext(
+		ctx,
+		"Updating new subscription",
+		slog.String("subscriptionID", sub.ID.String()),
+	)
 	setter := sub.setter()
 	setter.ID = omit.Val[uuid.UUID]{}
 
@@ -97,6 +120,8 @@ func (r *PgRepository) Update(ctx context.Context, sub Subscription) error {
 }
 
 func (r *PgRepository) Total(ctx context.Context, criteria TotalCriteria) (int64, error) {
+	slog.DebugContext(ctx, "Querying total")
+
 	q := psql.Select(
 		sm.From(models.Subscriptions.Name()),
 		sm.Columns(psql.F("SUM", models.Subscriptions.Columns.Price)),
