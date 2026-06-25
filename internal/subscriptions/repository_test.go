@@ -272,25 +272,26 @@ func TestTotal(t *testing.T) {
 			ServiceName: "s1",
 			Price:       10,
 			UserID:      userID1,
-			StartDate:   time.Date(2026, 5, 10, 0, 0, 0, 0, time.UTC),
+			StartDate:   time.Date(2020, 1, 10, 0, 0, 0, 0, time.UTC),
+			EndDate:     new(time.Date(2021, 10, 10, 0, 0, 0, 0, time.UTC)),
 			CreatedAt:   s1T,
 			UpdatedAt:   s1T,
 		},
 		{
 			ID:          uuidext.NewV7(),
 			ServiceName: "s2",
-			Price:       10,
-			UserID:      userID1,
-			StartDate:   time.Date(2026, 5, 10, 0, 0, 0, 0, time.UTC),
-			CreatedAt:   s1T,
-			UpdatedAt:   s1T,
-		},
-		{
-			ID:          uuidext.NewV7(),
-			ServiceName: "s2",
-			Price:       100,
+			Price:       40,
 			UserID:      uuidext.NewV7(),
-			StartDate:   time.Date(2026, 6, 10, 0, 0, 0, 0, time.UTC),
+			StartDate:   time.Date(2020, 5, 0, 0, 0, 0, 0, time.UTC),
+			CreatedAt:   s1T,
+			UpdatedAt:   s1T,
+		},
+		{
+			ID:          uuidext.NewV7(),
+			ServiceName: "s2",
+			Price:       30,
+			UserID:      userID1,
+			StartDate:   time.Date(2022, 6, 10, 0, 0, 0, 0, time.UTC),
 			CreatedAt:   s2T,
 			UpdatedAt:   s2T,
 		},
@@ -304,6 +305,8 @@ func TestTotal(t *testing.T) {
 		require.NoError(t, err)
 	}
 
+	t2020 := time.Date(2020, 0, 0, 0, 0, 0, 0, time.UTC)
+
 	tests := []struct {
 		name     string
 		criteria TotalCriteria
@@ -311,18 +314,29 @@ func TestTotal(t *testing.T) {
 	}{
 		{
 			"all",
-			TotalCriteria{},
-			120,
+			TotalCriteria{
+				PeriodStart: t2020,
+				PeriodEnd:   t2020.AddDate(0, 6, 0),
+			},
+			50,
 		},
 		{
 			"by userID",
-			TotalCriteria{UserID: &userID1},
-			20,
+			TotalCriteria{
+				UserID:      &userID1,
+				PeriodStart: t2020,
+				PeriodEnd:   t2020.AddDate(3, 0, 0),
+			},
+			40,
 		},
 		{
 			"by service",
-			TotalCriteria{ServiceName: new("s2")},
-			110,
+			TotalCriteria{
+				ServiceName: new("s2"),
+				PeriodStart: t2020,
+				PeriodEnd:   t2020.AddDate(3, 0, 0),
+			},
+			70,
 		},
 	}
 

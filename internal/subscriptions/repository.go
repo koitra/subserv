@@ -125,6 +125,11 @@ func (r *PgRepository) Total(ctx context.Context, criteria TotalCriteria) (int64
 	q := psql.Select(
 		sm.From(models.Subscriptions.Name()),
 		sm.Columns(psql.F("SUM", models.Subscriptions.Columns.Price)),
+		models.SelectWhere.Subscriptions.StartDate.LTE(criteria.PeriodEnd),
+		psql.WhereOr(
+			models.SelectWhere.Subscriptions.EndDate.IsNull(),
+			models.SelectWhere.Subscriptions.EndDate.GTE(criteria.PeriodStart),
+		),
 	)
 
 	if criteria.ServiceName != nil {

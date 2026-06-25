@@ -214,9 +214,14 @@ func (h *Handler) total(
 	total, err := h.svc.Total(ctx, TotalCriteria{
 		UserID:      in.UserID.Ptr(),
 		ServiceName: in.ServiceName.Ptr(),
+		PeriodStart: time.Time(in.PeriodStart),
+		PeriodEnd:   time.Time(in.PerodEnd),
 	})
 	if err != nil {
 		slog.ErrorContext(ctx, "Total failed", slog.String("error", err.Error()))
+		if err, ok := humaext.ValidateToHuma(err); ok {
+			return nil, err
+		}
 		return nil, fmt.Errorf("get total: %w", err)
 	}
 
@@ -229,6 +234,8 @@ type (
 	SubscriptionsTotalIn struct {
 		UserID      humaext.Opt[uuid.UUID] `query:"userId"      format:"uuid"`
 		ServiceName humaext.Opt[string]    `query:"serviceName"               minLength:"1"`
+		PeriodStart Date                   `query:"periodStart"                             required:"true"`
+		PerodEnd    Date                   `query:"periodEnd"                               required:"true"`
 	}
 	SubscriptionsTotalOut struct {
 		Body struct {

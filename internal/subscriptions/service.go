@@ -47,7 +47,7 @@ type (
 		Price       int32      `validate:"gte=0"`
 		UserID      uuid.UUID  `validate:"required,uuid"`
 		StartDate   time.Time  `validate:"required"`
-		EndDate     *time.Time `validate:"omitnil,gtfield=StartDate"`
+		EndDate     *time.Time `validate:"omitnil,gtefield=StartDate"`
 	}
 
 	Criteria struct {
@@ -66,6 +66,9 @@ type (
 	TotalCriteria struct {
 		UserID      *uuid.UUID
 		ServiceName *string
+
+		PeriodStart time.Time `validate:"required"`
+		PeriodEnd   time.Time `validate:"required,gtefield=PeriodStart"`
 	}
 
 	Svc struct {
@@ -168,6 +171,10 @@ func (s *Svc) Update(ctx context.Context, update UpdateSubscription) (Subscripti
 }
 
 func (s *Svc) Total(ctx context.Context, criteria TotalCriteria) (int64, error) {
+	err := s.validate.Struct(&criteria)
+	if err != nil {
+		return 0, fmt.Errorf("invalid criteria: %w", err)
+	}
 	return s.r.Total(ctx, criteria)
 }
 
