@@ -18,6 +18,7 @@ type (
 		Find(ctx context.Context, criteria Criteria) (FindResult, error)
 		Update(ctx context.Context, update UpdateSubscription) (Subscription, error)
 		Remove(ctx context.Context, subID uuid.UUID) error
+		Total(ctx context.Context, criteria TotalCriteria) (int64, error)
 	}
 
 	Subscription struct {
@@ -59,6 +60,11 @@ type (
 		Subscriptions []Subscription
 
 		Cursor *time.Time
+	}
+
+	TotalCriteria struct {
+		UserID      *uuid.UUID
+		ServiceName *string
 	}
 
 	Svc struct {
@@ -149,6 +155,10 @@ func (s *Svc) Update(ctx context.Context, update UpdateSubscription) (Subscripti
 		return Subscription{}, fmt.Errorf("update subscription: %w", err)
 	}
 	return sub, nil
+}
+
+func (s *Svc) Total(ctx context.Context, criteria TotalCriteria) (int64, error) {
+	return s.r.Total(ctx, criteria)
 }
 
 func (sub *Subscription) normalizeTime() {

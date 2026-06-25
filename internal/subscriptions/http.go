@@ -3,6 +3,7 @@ package subscriptions
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -36,6 +37,7 @@ func (h *Handler) Register(hapi huma.API) {
 	huma.Post(g, "", h.create, statuses)
 	huma.Put(g, "/{subscriptionId}", h.update, statuses)
 	huma.Delete(g, "/{subscriptionId}", h.delete, statuses)
+	huma.Get(g, "/total", h.total, statuses)
 }
 
 type (
@@ -196,6 +198,35 @@ type (
 	SubscriptionsUpdateOut struct {
 		Body struct {
 			Subscription APISubscription `json:"subscription"`
+		}
+	}
+)
+
+func (h *Handler) total(
+	ctx context.Context,
+	in *SubscriptionsTotalIn,
+) (*SubscriptionsTotalOut, error) {
+	total, err := h.svc.Total(ctx, TotalCriteria{
+		UserID:      in.UserID.Ptr(),
+		ServiceName: in.ServiceName.Ptr(),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("get total: %w", err)
+	}
+
+	var out SubscriptionsTotalOut
+	out.Body.Total = total
+	return &out, nil
+}
+
+type (
+	SubscriptionsTotalIn struct {
+		UserID      humaext.Opt[uuid.UUID] `query:"userId"      format:"uuid"`
+		ServiceName humaext.Opt[string]    `query:"serviceName"               minLength:"1"`
+	}
+	SubscriptionsTotalOut struct {
+		Body struct {
+			Total int64 `json:"total"`
 		}
 	}
 )

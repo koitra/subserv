@@ -8,6 +8,9 @@ import (
 	"github.com/aarondl/opt/omitnull"
 	"github.com/google/uuid"
 	"github.com/stephenafamo/bob"
+	"github.com/stephenafamo/bob/dialect/psql"
+	"github.com/stephenafamo/bob/dialect/psql/sm"
+	"github.com/stephenafamo/scan"
 
 	"github.com/koitra/subserv/internal/cursor"
 	"github.com/koitra/subserv/internal/dba"
@@ -20,6 +23,7 @@ type (
 		Find(ctx context.Context, criteria Criteria) ([]Subscription, error)
 		Update(ctx context.Context, sub Subscription) error
 		Delete(ctx context.Context, subID uuid.UUID) error
+		Total(ctx context.Context, criteria TotalCriteria) (int64, error)
 	}
 
 	PgRepository struct {
@@ -90,6 +94,27 @@ func (r *PgRepository) Update(ctx context.Context, sub Subscription) error {
 	}
 
 	return nil
+}
+
+func (r *PgRepository) Total(ctx context.Context, criteria TotalCriteria) (int64, error) {
+	q := psql.Select(
+		sm.From(models.Subscriptions.Name()),
+		sm.Columns(psql.F("SUM", models.Subscriptions.Columns.Price)),
+	)
+
+	if criteria.ServiceName != nil {
+		q.Apply(models.SelectWhere.Subscriptions.ServiceName.EQ(*criteria.ServiceName))
+	}
+	if criteria.UserID != nil {
+		q.Apply(models.SelectWhere.Subscriptions.UserID.EQ(*criteria.UserID))
+	}
+
+	sum, err := bob.One(ctx, r.db, q, scan.SingleColumnMapper[int64])
+	if err != nil {
+		return 0, fmt.Errorf("sum: %w", err)
+	}
+
+	return sum, nil
 }
 
 func (sub *Subscription) setter() *models.SubscriptionSetter {

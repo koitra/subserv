@@ -259,6 +259,84 @@ func TestUpdate(t *testing.T) {
 	})
 }
 
+func TestTotal(t *testing.T) {
+	t.Parallel()
+	r, _, ctx := testEnv(t)
+
+	s1T := time.Now().UTC()
+	s2T := s1T.Add(time.Millisecond * 10)
+	userID1 := uuidext.NewV7()
+	subs := []Subscription{
+		{
+			ID:          uuidext.NewV7(),
+			ServiceName: "s1",
+			Price:       10,
+			UserID:      userID1,
+			StartDate:   time.Date(2026, 5, 10, 0, 0, 0, 0, time.UTC),
+			CreatedAt:   s1T,
+			UpdatedAt:   s1T,
+		},
+		{
+			ID:          uuidext.NewV7(),
+			ServiceName: "s2",
+			Price:       10,
+			UserID:      userID1,
+			StartDate:   time.Date(2026, 5, 10, 0, 0, 0, 0, time.UTC),
+			CreatedAt:   s1T,
+			UpdatedAt:   s1T,
+		},
+		{
+			ID:          uuidext.NewV7(),
+			ServiceName: "s2",
+			Price:       100,
+			UserID:      uuidext.NewV7(),
+			StartDate:   time.Date(2026, 6, 10, 0, 0, 0, 0, time.UTC),
+			CreatedAt:   s2T,
+			UpdatedAt:   s2T,
+		},
+	}
+
+	for i := range subs {
+		sub := &subs[i]
+		sub.normalizeTime()
+
+		err := r.Create(ctx, *sub)
+		require.NoError(t, err)
+	}
+
+	tests := []struct {
+		name     string
+		criteria TotalCriteria
+		expect   int64
+	}{
+		{
+			"all",
+			TotalCriteria{},
+			120,
+		},
+		{
+			"by userID",
+			TotalCriteria{UserID: &userID1},
+			20,
+		},
+		{
+			"by service",
+			TotalCriteria{ServiceName: new("s2")},
+			110,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			total, err := r.Total(ctx, tt.criteria)
+			require.NoError(t, err)
+			require.EqualValues(t, tt.expect, total)
+		})
+	}
+}
+
 func testEnv(t *testing.T) (Repository, bob.DB, context.Context) {
 	db := testdb.New(t)
 	r := NewRepository(db)

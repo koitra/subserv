@@ -24,3 +24,10 @@ func (o *Opt[T]) Receiver() reflect.Value {
 func (o *Opt[T]) OnParamSet(isSet bool, parsed any) {
 	o.IsSet = isSet
 }
+
+func (o *Opt[T]) Ptr() *T {
+	if !o.IsSet {
+		return nil
+	}
+	return &o.Value
+}
