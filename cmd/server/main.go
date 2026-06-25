@@ -14,10 +14,12 @@ import (
 	"github.com/danielgtaylor/huma/v2/adapters/humachi"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-playground/validator/v10"
+	"github.com/pressly/goose/v3"
 	"github.com/stephenafamo/bob"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 
+	"github.com/koitra/subserv"
 	"github.com/koitra/subserv/internal/config"
 	"github.com/koitra/subserv/internal/subscriptions"
 )
@@ -44,6 +46,17 @@ func run() error {
 	defer func() { _ = stdDB.Close() }()
 	stdDB.SetMaxOpenConns(cfg.DB.MaxConnections)
 	db := bob.NewDB(stdDB)
+
+	goose.SetBaseFS(subserv.MigrationsFS)
+	err = goose.SetDialect("postgres")
+	if err != nil {
+		return fmt.Errorf("initialize sql migrations: %w", err)
+	}
+
+	err = goose.Up(stdDB, "migrations")
+	if err != nil {
+		return fmt.Errorf("migrate database: %w", err)
+	}
 
 	mux := chi.NewMux()
 	humaCfg := huma.DefaultConfig("Subserv", "0.1.0")
