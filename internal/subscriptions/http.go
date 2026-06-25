@@ -22,18 +22,16 @@ func NewHandler(svc Service) *Handler {
 func (h *Handler) Register(hapi huma.API) {
 	g := huma.NewGroup(hapi, "/subscriptions")
 
-	huma.Post(
-		g,
-		"",
-		h.create,
-		func(o *huma.Operation) {
-			o.Errors = append(
-				o.Errors,
-				http.StatusUnprocessableEntity,
-				http.StatusInternalServerError,
-			)
-		},
-	)
+	statuses := func(o *huma.Operation) {
+		o.Errors = append(
+			o.Errors,
+			http.StatusUnprocessableEntity,
+			http.StatusInternalServerError,
+		)
+	}
+
+	huma.Post(g, "", h.create, statuses)
+	huma.Delete(g, "/{subscriptionId}", h.delete, statuses)
 }
 
 type (
@@ -94,4 +92,25 @@ type (
 			Subscription APISubscription `json:"subscription"`
 		}
 	}
+)
+
+func (h *Handler) delete(
+	ctx context.Context,
+	in *SubscriptionsDeleteIn,
+) (*SubscriptionsDeleteOut, error) {
+	err := h.svc.Remove(ctx, in.SubscriptionID)
+	if err != nil {
+		return nil, err
+	}
+
+	var out SubscriptionsDeleteOut
+	return &out, nil
+}
+
+type (
+	SubscriptionsDeleteIn struct {
+		SubscriptionID uuid.UUID `path:"subscriptionId" format:"uuid"`
+	}
+
+	SubscriptionsDeleteOut struct{}
 )

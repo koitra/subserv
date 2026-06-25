@@ -6,6 +6,7 @@ import (
 
 	"github.com/aarondl/opt/omit"
 	"github.com/aarondl/opt/omitnull"
+	"github.com/google/uuid"
 	"github.com/stephenafamo/bob"
 
 	"github.com/koitra/subserv/internal/dba/models"
@@ -14,6 +15,7 @@ import (
 type (
 	Repository interface {
 		Create(ctx context.Context, sub Subscription) error
+		Delete(ctx context.Context, subID uuid.UUID) error
 	}
 
 	PgRepository struct {
@@ -30,6 +32,16 @@ func (r *PgRepository) Create(ctx context.Context, sub Subscription) error {
 	if err != nil {
 		return fmt.Errorf("insert subscription: %w", err)
 	}
+	return nil
+}
+
+func (r *PgRepository) Delete(ctx context.Context, subID uuid.UUID) error {
+	_, err := models.Subscriptions.Delete(models.DeleteWhere.Subscriptions.ID.EQ(subID)).
+		Exec(ctx, r.db)
+	if err != nil {
+		return fmt.Errorf("delete subscription: %w", err)
+	}
+
 	return nil
 }
 

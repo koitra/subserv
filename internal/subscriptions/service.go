@@ -14,6 +14,7 @@ import (
 type (
 	Service interface {
 		Add(ctx context.Context, sub NewSubscription) (Subscription, error)
+		Remove(ctx context.Context, subID uuid.UUID) error
 	}
 
 	Subscription struct {
@@ -69,6 +70,10 @@ func (s *Svc) Add(ctx context.Context, add NewSubscription) (Subscription, error
 	}
 
 	return sub, nil
+}
+
+func (s *Svc) Remove(ctx context.Context, subID uuid.UUID) error {
+	return s.r.Delete(ctx, subID)
 }
 
 func (sub *Subscription) normalizeTime() {
