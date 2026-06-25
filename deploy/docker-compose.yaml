@@ -1,0 +1,39 @@
+name: subserv
+
+services:
+  subservdb:
+    image: postgres:18
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=${SUBSERV_DB_USER:?}
+      - POSTGRES_PASSWORD=${SUBSERV_DB_PASSWORD:?}
+      - POSTGRES_DB=${SUBSERV_DB_NAME:?}
+    volumes:
+      - pgdata:/var/lib/postgresql
+      # - ./config.yaml:/app/config.yaml
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${SUBSERV_DB_USER:?} -d ${SUBSERV_DB_NAME:?}",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+  subserv:
+    build:
+      context: ../
+      dockerfile: Dockerfile
+    image: subserv:latest
+    ports:
+      - "127.0.0.1:8080:${SUBSERV_HTTP_PORT:?}"
+    restart: unless-stopped
+    depends_on:
+      subservdb:
+        condition: service_healthy
+    environment:
+      - SUBSERV_DB_URL=${SUBSERV_DB_URL:?}
+      - SUBSERV_HTTP_PORT=${SUBSERV_HTTP_PORT:?}
+
+volumes:
+  pgdata:

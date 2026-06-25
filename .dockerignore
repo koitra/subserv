@@ -4,3 +4,4 @@ Dockerfile
 config.yaml
 docker-compose.yaml
 justfile
+/deploy
