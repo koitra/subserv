@@ -8,12 +8,14 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 
+	"github.com/koitra/subserv/internal/cursor"
 	"github.com/koitra/subserv/internal/uuidext"
 )
 
 type (
 	Service interface {
 		Add(ctx context.Context, sub NewSubscription) (Subscription, error)
+		Find(ctx context.Context, criteria Criteria) (FindResult, error)
 		Remove(ctx context.Context, subID uuid.UUID) error
 	}
 
@@ -34,6 +36,19 @@ type (
 		UserID      uuid.UUID  `validate:"required,uuid"`
 		StartDate   time.Time  `validate:"required"`
 		EndDate     *time.Time `validate:"omitnil,required,gtefield=StartDate"`
+	}
+
+	Criteria struct {
+		IDs          uuid.UUIDs
+		ServiceNames []string
+		UserIDs      uuid.UUIDs
+
+		Cursor cursor.Cursor
+	}
+	FindResult struct {
+		Subscriptions []Subscription
+
+		Cursor *time.Time
 	}
 
 	Svc struct {
@@ -74,6 +89,24 @@ func (s *Svc) Add(ctx context.Context, add NewSubscription) (Subscription, error
 
 func (s *Svc) Remove(ctx context.Context, subID uuid.UUID) error {
 	return s.r.Delete(ctx, subID)
+}
+
+func (s *Svc) Find(ctx context.Context, criteria Criteria) (FindResult, error) {
+	subs, err := s.r.Find(ctx, criteria)
+	if err != nil {
+		return FindResult{}, err
+	}
+
+	res := FindResult{
+		Subscriptions: subs,
+	}
+
+	count := len(subs)
+	if criteria.Cursor.Limit > 0 && count >= criteria.Cursor.Limit {
+		res.Cursor = &res.Subscriptions[count-1].CreatedAt
+	}
+
+	return res, nil
 }
 
 func (sub *Subscription) normalizeTime() {

@@ -6,10 +6,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/stephenafamo/bob"
 	"github.com/stephenafamo/bob/dialect/psql/sm"
 	"github.com/stretchr/testify/require"
 
+	"github.com/koitra/subserv/internal/cursor"
 	"github.com/koitra/subserv/internal/dba/factory"
 	"github.com/koitra/subserv/internal/dba/models"
 	"github.com/koitra/subserv/internal/testdb"
@@ -76,6 +78,114 @@ func TestDelete(t *testing.T) {
 
 	_, err = models.FindSubscription(ctx, db, subs[0].ID)
 	require.ErrorAs(t, err, new(sql.ErrNoRows))
+}
+
+func TestFind(t *testing.T) {
+	t.Parallel()
+	r, _, ctx := testEnv(t)
+
+	now := time.Now()
+	subs := []Subscription{
+		{
+			ID:          uuidext.NewV7(),
+			ServiceName: "service 1",
+			Price:       100,
+			UserID:      uuidext.NewV7(),
+			StartDate:   now,
+			CreatedAt:   now,
+			UpdatedAt:   now,
+		},
+
+		{
+			ID:          uuidext.NewV7(),
+			ServiceName: "service 1",
+			Price:       10,
+			UserID:      uuidext.NewV7(),
+			StartDate:   now,
+			CreatedAt:   now.Add(time.Hour),
+			UpdatedAt:   now.Add(time.Hour),
+		},
+
+		{
+			ID:          uuidext.NewV7(),
+			ServiceName: "service 2",
+			Price:       30,
+			UserID:      uuidext.NewV7(),
+			StartDate:   now,
+			CreatedAt:   now.Add(time.Hour * 2),
+			UpdatedAt:   now.Add(time.Hour * 2),
+		},
+	}
+
+	for i := range subs {
+		sub := &subs[i]
+		sub.normalizeTime()
+
+		err := r.Create(ctx, *sub)
+		require.NoError(t, err)
+	}
+
+	t.Run("empty criteria", func(t *testing.T) {
+		t.Parallel()
+
+		found, err := r.Find(ctx, Criteria{})
+		require.NoError(t, err)
+		require.Len(t, found, 3)
+	})
+
+	t.Run("empty result", func(t *testing.T) {
+		t.Parallel()
+
+		found, err := r.Find(ctx, Criteria{
+			IDs: uuid.UUIDs{uuidext.NewV7()},
+		})
+		require.NoError(t, err)
+		require.Len(t, found, 0)
+	})
+
+	t.Run("by IDs", func(t *testing.T) {
+		t.Parallel()
+
+		ids := uuid.UUIDs{subs[1].ID, subs[0].ID}
+		found, err := r.Find(ctx, Criteria{
+			IDs: ids,
+		})
+		require.NoError(t, err)
+		require.Len(t, found, 2)
+		for i := range ids {
+			require.Equal(t, ids[i], found[i].ID)
+		}
+	})
+
+	t.Run("by Names", func(t *testing.T) {
+		t.Parallel()
+
+		names := []string{"service 1"}
+		found, err := r.Find(ctx, Criteria{
+			ServiceNames: names,
+		})
+		require.NoError(t, err)
+		require.Len(t, found, 2)
+		for i := range names {
+			require.Equal(t, names[i], found[i].ServiceName)
+		}
+	})
+
+	t.Run("cursor", func(t *testing.T) {
+		t.Parallel()
+
+		found, err := r.Find(ctx, Criteria{Cursor: cursor.Cursor{Limit: 2}})
+		require.NoError(t, err)
+		require.Len(t, found, 2)
+
+		found, err = r.Find(
+			ctx,
+			Criteria{Cursor: cursor.Cursor{Limit: 2, At: &found[len(found)-1].CreatedAt}},
+		)
+		require.NoError(t, err)
+		require.Len(t, found, 1)
+		time.Sleep(time.Second)
+	})
 }
 
 func testEnv(t *testing.T) (Repository, bob.DB, context.Context) {

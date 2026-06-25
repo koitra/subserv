@@ -9,12 +9,15 @@ import (
 	"github.com/google/uuid"
 	"github.com/stephenafamo/bob"
 
+	"github.com/koitra/subserv/internal/cursor"
+	"github.com/koitra/subserv/internal/dba"
 	"github.com/koitra/subserv/internal/dba/models"
 )
 
 type (
 	Repository interface {
 		Create(ctx context.Context, sub Subscription) error
+		Find(ctx context.Context, criteria Criteria) ([]Subscription, error)
 		Delete(ctx context.Context, subID uuid.UUID) error
 	}
 
@@ -45,6 +48,30 @@ func (r *PgRepository) Delete(ctx context.Context, subID uuid.UUID) error {
 	return nil
 }
 
+func (r *PgRepository) Find(ctx context.Context, criteria Criteria) ([]Subscription, error) {
+	q := models.Subscriptions.Query(
+		dba.InIfNotEmpty(models.SelectWhere.Subscriptions.ID, criteria.IDs...),
+		dba.InIfNotEmpty(models.SelectWhere.Subscriptions.UserID, criteria.UserIDs...),
+		dba.InIfNotEmpty(models.SelectWhere.Subscriptions.ServiceName, criteria.ServiceNames...),
+		cursor.SelectMod(criteria.Cursor, models.Subscriptions.Columns.CreatedAt),
+	)
+
+	subs, err := q.All(ctx, r.db)
+	if err != nil {
+		return nil, fmt.Errorf("select subscriptions: %w", err)
+	}
+
+	count := len(subs)
+	res := make([]Subscription, count)
+
+	for i, s := range subs {
+		sub := subscriptionFromDB(s)
+		res[i] = sub
+	}
+
+	return res, nil
+}
+
 func (sub *Subscription) setter() *models.SubscriptionSetter {
 	return &models.SubscriptionSetter{
 		ID:          omit.From(sub.ID),
@@ -59,16 +86,14 @@ func (sub *Subscription) setter() *models.SubscriptionSetter {
 }
 
 func subscriptionFromDB(db *models.Subscription) Subscription {
-	sub := Subscription{
-		ID:          db.ID,
-		ServiceName: db.ServiceName,
-		Price:       db.Price,
-		UserID:      db.UserID,
-		StartDate:   db.StartDate,
-		EndDate:     db.EndDate.Ptr(),
-		CreatedAt:   db.CreatedAt,
-		UpdatedAt:   db.UpdatedAt,
-	}
-	sub.normalizeTime()
-	return sub
+	return newSubscription(
+		db.ID,
+		db.ServiceName,
+		db.Price,
+		db.UserID,
+		db.StartDate,
+		db.EndDate.Ptr(),
+		db.CreatedAt,
+		db.UpdatedAt,
+	)
 }

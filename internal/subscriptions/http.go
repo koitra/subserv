@@ -8,6 +8,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/google/uuid"
 
+	"github.com/koitra/subserv/internal/cursor"
 	"github.com/koitra/subserv/internal/humaext"
 )
 
@@ -32,6 +33,7 @@ func (h *Handler) Register(hapi huma.API) {
 
 	huma.Post(g, "", h.create, statuses)
 	huma.Delete(g, "/{subscriptionId}", h.delete, statuses)
+	huma.Get(g, "", h.index, statuses)
 }
 
 type (
@@ -65,14 +67,7 @@ func (h *Handler) create(
 	}
 
 	var out SubscriptionsCreateOut
-	out.Body.Subscription = APISubscription{
-		ID:          sub.ID,
-		ServiceName: sub.ServiceName,
-		Price:       sub.Price,
-		UserID:      sub.UserID,
-		StartDate:   Date(sub.StartDate),
-		EndDate:     (*Date)(sub.EndDate),
-	}
+	out.Body.Subscription = apiSubscriptionFromSubscription(&sub)
 
 	return &out, nil
 }
@@ -114,3 +109,55 @@ type (
 
 	SubscriptionsDeleteOut struct{}
 )
+
+func (h *Handler) index(
+	ctx context.Context,
+	in *SubscriptionsIndexIn,
+) (*SubscriptionsIndexOut, error) {
+	subs, err := h.svc.Find(ctx, Criteria{
+		IDs:          in.IDs.IDs,
+		ServiceNames: in.ServerNames,
+		UserIDs:      in.UserIDs.IDs,
+		Cursor:       in.WebCursorIn.ToCursor().WithMaxLimit(100),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var out SubscriptionsIndexOut
+	out.Body.Subscriptions = make([]APISubscription, len(subs.Subscriptions))
+	for i, sub := range subs.Subscriptions {
+		out.Body.Subscriptions[i] = apiSubscriptionFromSubscription(&sub)
+	}
+	out.Body.Cursor = subs.Cursor
+
+	return &out, nil
+}
+
+type (
+	SubscriptionsIndexIn struct {
+		IDs     humaext.UUIDs `query:"ids"`
+		UserIDs humaext.UUIDs `query:"userIds"`
+
+		ServerNames []string `query:"serverNames"`
+		cursor.WebCursorIn
+	}
+
+	SubscriptionsIndexOut struct {
+		Body struct {
+			Subscriptions []APISubscription `json:"subscriptions"`
+			Cursor        *time.Time        `json:"cursor,omitempty"`
+		}
+	}
+)
+
+func apiSubscriptionFromSubscription(sub *Subscription) APISubscription {
+	return APISubscription{
+		ID:          sub.ID,
+		ServiceName: sub.ServiceName,
+		Price:       sub.Price,
+		UserID:      sub.UserID,
+		StartDate:   Date(sub.StartDate),
+		EndDate:     (*Date)(sub.EndDate),
+	}
+}
