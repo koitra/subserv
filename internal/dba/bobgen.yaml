@@ -1,0 +1,8 @@
+psql:
+  driver: github.com/jackc/pgx/v5/stdlib
+  queries:
+    - ./queries
+  uuid_pkg: google
+  except:
+    goose_db_version:
+  dsn: "postgres://subserv:verystron6@localhost:33210/subserv?sslmode=disable"

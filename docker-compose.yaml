@@ -1,0 +1,12 @@
+name: subserv-dev
+
+services:
+  db:
+    image: postgres:18
+    restart: no
+    ports:
+      - 127.0.0.1:33210:5432
+    environment:
+      - POSTGRES_USER=subserv
+      - POSTGRES_PASSWORD=verystron6
+      - POSTGRES_DB=subserv
