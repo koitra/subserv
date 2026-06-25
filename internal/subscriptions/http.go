@@ -36,19 +36,19 @@ func (h *Handler) Register(hapi huma.API) {
 
 	huma.Get(g, "", h.index, statuses)
 	huma.Post(g, "", h.create, statuses)
-	huma.Put(g, "/{subscriptionId}", h.update, statuses)
-	huma.Delete(g, "/{subscriptionId}", h.delete, statuses)
+	huma.Put(g, "/{subscription_id}", h.update, statuses)
+	huma.Delete(g, "/{subscription_id}", h.delete, statuses)
 	huma.Get(g, "/total", h.total, statuses)
 }
 
 type (
 	APISubscription struct {
-		ID          uuid.UUID `json:"subscriptionId"`
-		ServiceName string    `json:"serviceName"`
+		ID          uuid.UUID `json:"subscription_id"`
+		ServiceName string    `json:"service_name"`
 		Price       int32     `json:"price"`
-		UserID      uuid.UUID `json:"userId"`
-		StartDate   Date      `json:"startDate"`
-		EndDate     *Date     `json:"endDate,omitempty"`
+		UserID      uuid.UUID `json:"user_id"`
+		StartDate   Date      `json:"start_date"`
+		EndDate     *Date     `json:"end_date,omitempty"`
 	}
 )
 
@@ -81,11 +81,11 @@ func (h *Handler) create(
 type (
 	SubscriptionsCreateIn struct {
 		Body struct {
-			ServiceName string    `json:"serviceName" minLength:"1"`
+			ServiceName string    `json:"service_name" minLength:"1"`
 			Price       int32     `json:"price" minimum:"0"`
-			UserID      uuid.UUID `json:"userId" format:"uuid"`
-			StartDate   Date      `json:"startDate"`
-			EndDate     *Date     `json:"endDate,omitempty"`
+			UserID      uuid.UUID `json:"user_id" format:"uuid"`
+			StartDate   Date      `json:"start_date"`
+			EndDate     *Date     `json:"end_date,omitempty"`
 		}
 	}
 	SubscriptionsCreateOut struct {
@@ -111,7 +111,7 @@ func (h *Handler) delete(
 
 type (
 	SubscriptionsDeleteIn struct {
-		SubscriptionID uuid.UUID `path:"subscriptionId" format:"uuid"`
+		SubscriptionID uuid.UUID `path:"subscription_id" format:"uuid"`
 	}
 
 	SubscriptionsDeleteOut struct{}
@@ -145,9 +145,9 @@ func (h *Handler) index(
 type (
 	SubscriptionsIndexIn struct {
 		IDs     humaext.UUIDs `query:"ids"`
-		UserIDs humaext.UUIDs `query:"userIds"`
+		UserIDs humaext.UUIDs `query:"user_ids"`
 
-		ServerNames []string `query:"serverNames"`
+		ServerNames []string `query:"server_names"`
 		cursor.WebCursorIn
 	}
 
@@ -191,13 +191,13 @@ func (h *Handler) update(
 
 type (
 	SubscriptionsUpdateIn struct {
-		SubscriptionID uuid.UUID `path:"subscriptionId"`
+		SubscriptionID uuid.UUID `path:"subscription_id"`
 		Body           struct {
-			ServiceName string    `json:"serviceName"`
+			ServiceName string    `json:"service_name"`
 			Price       int32     `json:"price"`
-			UserID      uuid.UUID `json:"userId"`
-			StartDate   Date      `json:"startDate"`
-			EndDate     *Date     `json:"endDate,omitempty"`
+			UserID      uuid.UUID `json:"user_id"`
+			StartDate   Date      `json:"start_date"`
+			EndDate     *Date     `json:"end_date,omitempty"`
 		}
 	}
 	SubscriptionsUpdateOut struct {
@@ -232,10 +232,10 @@ func (h *Handler) total(
 
 type (
 	SubscriptionsTotalIn struct {
-		UserID      humaext.Opt[uuid.UUID] `query:"userId"      format:"uuid"`
-		ServiceName humaext.Opt[string]    `query:"serviceName"               minLength:"1"`
-		PeriodStart Date                   `query:"periodStart"                             required:"true"`
-		PerodEnd    Date                   `query:"periodEnd"                               required:"true"`
+		UserID      humaext.Opt[uuid.UUID] `query:"user_id"      format:"uuid"`
+		ServiceName humaext.Opt[string]    `query:"service_name"               minLength:"1"`
+		PeriodStart Date                   `query:"period_start"                             required:"true"`
+		PerodEnd    Date                   `query:"period_end"                               required:"true"`
 	}
 	SubscriptionsTotalOut struct {
 		Body struct {
