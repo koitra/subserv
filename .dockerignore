@@ -1,0 +1,6 @@
+.dockerignore
+.env
+Dockerfile
+config.yaml
+docker-compose.yaml
+justfile
