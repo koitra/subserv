@@ -18,6 +18,11 @@ type (
 	Full struct {
 		DB   DB   `koanf:"db"`
 		HTTP HTTP `koanf:"http"`
+		App  App  `koanf:"app"`
+	}
+
+	App struct {
+		Log LogLevel `koanf:"log"`
 	}
 
 	DB struct {
@@ -89,6 +94,39 @@ func Load(cfgPath string, validate *validator.Validate) (Full, error) {
 func defaultConfig() Full {
 	return Full{
 		DB:   DB{MaxConnections: 50},
+		App:  App{Log: Info},
 		HTTP: HTTP{Host: "localhost", Port: 33220},
 	}
+}
+
+type LogLevel string
+
+const (
+	Warn  LogLevel = "warn"
+	Info  LogLevel = "info"
+	Debug LogLevel = "debug"
+)
+
+func (l *LogLevel) UnmarshalText(text []byte) error {
+	v := string(text)
+	switch LogLevel(v) {
+	case Warn, Info, Debug:
+		*l = LogLevel(v)
+		return nil
+	default:
+		return fmt.Errorf("unknown log level: %s", v)
+	}
+}
+
+func (l LogLevel) SlogLevel() slog.Level {
+	switch l {
+	case Warn:
+		return slog.LevelWarn
+	case Info:
+		return slog.LevelInfo
+	case Debug:
+		return slog.LevelDebug
+	}
+
+	return slog.LevelInfo
 }

@@ -32,6 +32,15 @@ func run() error {
 		return fmt.Errorf("load config: %w", err)
 	}
 
+	slog.SetDefault(
+		slog.New(
+			slog.NewTextHandler(
+				os.Stdout,
+				&slog.HandlerOptions{Level: cfg.App.Log.SlogLevel()},
+			),
+		),
+	)
+
 	app, err := app.New(cfg, validate)
 	if err != nil {
 		return fmt.Errorf("create app: %w", err)
